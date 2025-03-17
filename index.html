@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blockchain Demo</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>Demo Công Nghệ Blockchain</h1>
+        <div class="buttons">
+            <button id="addBlockBtn">➕ Thêm khối mới</button>
+            <button id="checkValidityBtn">✅ Kiểm tra tính toàn vẹn</button>
+        </div>
+        <div class="blockchain-container">
+            <h2>Chuỗi Blockchain</h2>
+            <pre id="output"></pre>
+        </div>
+    </div>
+
+    <script>
+        class Block {
+            constructor(index, timestamp, data, previousHash = '') {
+                this.index = index;
+                this.timestamp = timestamp;
+                this.data = data;
+                this.previousHash = previousHash;
+                this.hash = "";
+            }
+
+            async calculateHash() {
+                const msg = this.index + this.timestamp + JSON.stringify(this.data) + this.previousHash;
+                const encoder = new TextEncoder();
+                const data = encoder.encode(msg);
+                const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                return hashArray.map(byte => byte.toString(16).padStart(2, '0')).join('');
+            }
+        }
+
+        class Blockchain {
+            constructor() {
+                this.chain = [];
+                this.init();
+            }
+
+            async init() {
+                const genesisBlock = new Block(0, Date.now(), "Khối gốc", "0");
+                genesisBlock.hash = await genesisBlock.calculateHash();
+                this.chain.push(genesisBlock);
+                this.displayBlockchain();
+            }
+
+            getLatestBlock() {
+                return this.chain[this.chain.length - 1];
+            }
+
+            async addBlock(newBlock) {
+                newBlock.previousHash = this.getLatestBlock().hash;
+                newBlock.hash = await newBlock.calculateHash();
+                this.chain.push(newBlock);
+                this.displayBlockchain();
+            }
+
+            async isChainValid() {
+                for (let i = 1; i < this.chain.length; i++) {
+                    const currentBlock = this.chain[i];
+                    const previousBlock = this.chain[i - 1];
+
+                    if (currentBlock.hash !== await currentBlock.calculateHash()) {
+                        console.log("Khối bị thay đổi:", currentBlock);
+                        return false;
+                    }
+
+                    if (currentBlock.previousHash !== previousBlock.hash) {
+                        console.log("Chuỗi hash không khớp giữa các khối!");
+                        return false;
+                    }
+                }
+                return true;
+            }
+
+            displayBlockchain() {
+                document.getElementById('output').innerText = JSON.stringify(this.chain, null, 4);
+            }
+        }
+
+        const myBlockchain = new Blockchain();
+
+        document.getElementById("addBlockBtn").addEventListener("click", async () => {
+            const newBlock = new Block(myBlockchain.chain.length, Date.now(), { amount: Math.floor(Math.random() * 100) });
+            await myBlockchain.addBlock(newBlock);
+        });
+
+        document.getElementById("checkValidityBtn").addEventListener("click", async () => {
+            const isValid = await myBlockchain.isChainValid();
+            alert(isValid ? "✅ Blockchain hợp lệ!" : "❌ Blockchain bị thay đổi!");
+            console.log("Kết quả kiểm tra:", isValid);
+        });
+    </script>
+</body>
+</html>
